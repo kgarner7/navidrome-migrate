@@ -21,21 +21,9 @@ def fail(msg: str) -> NoReturn:
     exit(-1)
 
 
-if args.db_path:
-    db_path: str = args.db_path
-else:
-    db_path = input("Please provide a path to your navidrome.db: ").strip()
-
-if args.old_path:
-    old_path: str = args.old_path
-else:
-    old_path = input("Please provide the original path to your music library: ").strip()
-
-if args.new_path:
-    new_path: str = args.new_path
-else:
-    new_path = input("Please provide the current path to your music library: ").strip()
-
+db_path: str = args.db_path
+old_path: str = args.old_path
+new_path: str = args.new_path
 
 if not Path(db_path).is_file():
     fail(f"The database '{db_path}' does not exist")

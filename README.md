@@ -5,31 +5,20 @@ This is because Navidrome sees new paths to your music, and will remove the old 
 The purpose of this script is to update the paths in Navidrome so you can keep your metadata if you have to move your music library.
 
 ## What it does
-To make Navidrome recognize your new library, you have to two things:
-1. Update the paths of all of your songs to point to the new location
-2. Set the `LastScan-` property corresponding to your new path. If this is not set, then Navidrome will assume this is a new library.
 
-If you are comfortable with SQL, then this can all be accomplished with the below code
-(replacing `OLD_PATH` with the old path to your music library, and `NEW_PATH` as the new path).
-Although this is in a transaction, I would recommend running this while Navidrome is stopped.
+To make Navidrome recognize your new library, you have to make your media files consistent.
+This requires two things:
 
-```sql
-BEGIN;
-UPDATE media_file
-SET path = "NEW_PATH" || SUBSTRING(path, LENGTH("OLD_PATH") + 1);
-
-UPDATE property
-SET id = "LastScan-NEW_PATH"
-WHERE id = "LastScan-OLD_PATH";
-COMMIT;
-```
+1. The media files should point to the new path
+2. The ID of your the file should be md5sum(new path)
 
 ## How to use this script
 
 Usage:
+
 1. Stop Navidrome.
-1. Make note of the original path to your music library. 
-This is the `MusicFolder` (`navidrome.toml`) or `ND_MUSICFOLDER` (environment variable) property
-1. Run the migration script: `python migrate.py -d PATH_TO_ORIGINAL_DB -o ORIGINAL_MUSIC_FOLDER PATH_TO_NEW_DB -n NEW_MUSIC_FOLDER`, or just `python migrate.py` and input those values as needed.
+1. Make note of the original path to your music library.
+   This is the `MusicFolder` (navidrome.toml) or `ND_MUSICFOLDER` (environment variable) property
+1. Run the migration script: `python migrate.py PATH_TO_ORIGINAL_DB ORIGINAL_MUSIC_FOLDER PATH_TO_NEW_DB NEW_MUSIC_FOLDER`.
 1. Change the `MusicFolder`/`ND_MUSICFOLDER` variable to point to the new location of your library.
-1. Start Navidrome. 
+1. Start Navidrome.

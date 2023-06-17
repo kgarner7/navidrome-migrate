@@ -1,16 +1,17 @@
 from argparse import ArgumentParser
+from hashlib import md5
 from pathlib import Path
 from sqlite3 import connect
+from traceback import print_exc
 from typing import NoReturn
 
 parser = ArgumentParser(description="Navidrome database migrator")
-parser.add_argument("-d", "--db_path", help="Path to your navidrome.db")
+parser.add_argument("db_path", help="Path to your navidrome.db")
 parser.add_argument(
-    "-o",
-    "--old_path",
+    "old_path",
     help="The original path to your music library (either MusicFolder or ND_MUSICFOLDER",
 )
-parser.add_argument("-n", "--new_path", help="The current path to your music library")
+parser.add_argument("new_path", help="The current path to your music library")
 
 args = parser.parse_args()
 
@@ -60,21 +61,27 @@ try:
             "SELECT path FROM media_file LIMIT 1"
         ).fetchone()
 
-        sample_new_path = sample_path.replace(old_path, new_path)
+        sample_new_path = sample_path.replace(old_path, new_path, 1)
 
         if not Path(sample_new_path).is_file():
             raise Exception(
                 f"Could not find a file at '{sample_new_path}'. Please make sure the new path is correct"
             )
 
-        cursor.execute(
-            "UPDATE media_file SET path = ? || SUBSTRING(path, ?)",
-            (new_path, len(old_path) + 1),
-        )
+        # update media file path and hash
+        cursor.execute("SELECT id, path from media_file")
+        for id, path in cursor.fetchall():
+            new_track_path = path.replace(old_path, new_path, 1)
+            new_id = md5(new_track_path.encode()).hexdigest()
 
-        cursor.execute(
-            "UPDATE property SET id = ? WHERE id = ?",
-            (f"LastScan-{new_path}", f"LastScan-{old_path}"),
-        )
+            cursor.execute(
+                "UPDATE media_file SET id = ?, path = ? where id = ?",
+                (new_id, new_path, id),
+            )
+            cursor.execute(
+                "UPDATE annotation SET item_id = ? WHERE item_id = ? AND item_type = 'media_file'",
+                (new_id, id),
+            )
+
 except Exception as e:
     fail(str(e))

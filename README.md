@@ -17,8 +17,11 @@ This requires two things:
 Usage:
 
 1. Stop Navidrome.
-1. Make note of the original path to your music library.
+2. Back up your database (make a copy of `navidrome.db`)
+3. Make note of the original path to your music library.
    This is the `MusicFolder` (navidrome.toml) or `ND_MUSICFOLDER` (environment variable) property
-1. Run the migration script: `python migrate.py PATH_TO_ORIGINAL_DB ORIGINAL_MUSIC_FOLDER PATH_TO_NEW_DB NEW_MUSIC_FOLDER`.
-1. Change the `MusicFolder`/`ND_MUSICFOLDER` variable to point to the new location of your library.
-1. Start Navidrome.
+4. Copy/move your music to the new music folder. (The script will check the validity of the new paths)
+- The new music path may contain symlinks if needed
+5. Run the migration script: `python migrate.py PATH_TO_DB ORIGINAL_MUSIC_FOLDER NEW_MUSIC_FOLDER`.
+6. Change the `MusicFolder`/`ND_MUSICFOLDER` variable to point to the new location of your library.
+7. Start Navidrome, and run a full scan.

@@ -4,15 +4,38 @@ from hashlib import md5
 from pathlib import Path
 from sqlite3 import connect
 from traceback import print_exc
-from typing import List, NoReturn, Optional, Tuple
+from typing import List, Literal, NoReturn, Optional, Tuple
 
 parser = ArgumentParser(description="Navidrome database migrator")
 parser.add_argument("db_path", help="Path to your navidrome.db")
 parser.add_argument(
     "old_path",
-    help="The original path to your music library (either MusicFolder or ND_MUSICFOLDER",
+    help="The full path to your music library before migration",
 )
-parser.add_argument("new_path", help="The current path to your music library")
+parser.add_argument(
+    "new_path", help="The full path to your music library after migration"
+)
+parser.add_argument(
+    "-v",
+    "--validation",
+    choices=["full", "short", "none"],
+    default="full",
+    help=(
+        "Whether to check for the existence of every file [full]"
+        ", or just do a short sample to make sure that at least one file exists. "
+        "Note that [full] validation may take a while for large libraries, and will fail"
+        "if you did not migrate over every file. "
+        "none will disable ALL checks of directory integrity. "
+        "Use this ONLY if you are having issues with full/short because you id not migrate every file over"
+    ),
+)
+parser.add_argument(
+    "-d",
+    "--dry-run",
+    action="store_true",
+    default=False,
+    help="If true, undo all changes before exit (useful primarily for testing)",
+)
 
 args = parser.parse_args()
 
@@ -27,6 +50,8 @@ def fail(msg: str) -> NoReturn:
 db_path: str = args.db_path
 old_path: str = args.old_path
 new_path: str = args.new_path
+validation_mode: Literal["full", "short", "none"] = args.validation
+dry_run: bool = args.dry_run
 
 if not Path(db_path).is_file():
     fail(f"The database '{db_path}' does not exist")
@@ -52,21 +77,42 @@ try:
         full_count = result[0]
 
         if path_count != full_count:
+            paths: List[Tuple[str]] = conn.execute(
+                "SELECT path FROM media_file"
+            ).fetchall()
+
+            prefix = paths[0][0]
+            for (path,) in paths[1:]:
+                for j in range(min(len(prefix), len(path))):
+                    if prefix[j] != path[j]:
+                        prefix = prefix[:j]
+                        break
+
             raise Exception(
-                f"The prefix {old_path} does not match all of the songs in your library ({path_count} vs {full_count}). Please make sure you are using the correct path"
+                (
+                    f"The prefix {old_path} does not match all of the songs in your library ({path_count} vs {full_count}).\n"
+                    "Please make sure you are using the correct path.\n"
+                    f"Based off of your database, the shortest path that matches all of your files is {prefix}\n"
+                )
             )
 
-        first_file: Tuple[str] = cursor.execute(
-            "SELECT path FROM media_file LIMIT 1"
-        ).fetchone()
-        sample_path = first_file[0]
+        if validation_mode == "none":
+            sample_paths: List[Tuple[str]] = []
+        elif validation_mode == "full":
+            sample_paths = conn.execute("SELECT path FROM media_file").fetchall()
+        else:
+            sample_path: Tuple[str] = cursor.execute(
+                "SELECT path FROM media_file LIMIT 1"
+            ).fetchone()
+            sample_paths = [sample_path]
 
-        sample_new_path = sample_path.replace(old_path, new_path, 1)
+        for sample_path in sample_paths:
+            sample_new_path = sample_path[0].replace(old_path, new_path, 1)
 
-        if not Path(sample_new_path).is_file():
-            raise Exception(
-                f"Could not find a file at '{sample_new_path}'. Please make sure the new path is correct"
-            )
+            if not Path(sample_new_path).is_file():
+                raise Exception(
+                    f"Could not find a file at '{sample_new_path}'. Please make sure the new path is correct"
+                )
 
         # update media file path and hash
         media_files: List[Tuple[str, str]] = cursor.execute(
@@ -114,24 +160,30 @@ try:
         albums: List[Tuple[str, str, Optional[str]]] = cursor.execute(
             "SELECT id, embed_art_path, paths FROM album"
         ).fetchall()
-        for id, embed, paths in albums:
+        for id, embed, art_paths in albums:
             new_embed_path = embed.replace(old_path, new_path, 1)
 
-            if paths:
+            if art_paths:
                 new_paths: Optional[str] = ZERO_WIDTH_SPACE.join(
                     [
                         path.replace(old_path, new_path, 1)
-                        for path in paths.split(ZERO_WIDTH_SPACE)
+                        for path in art_paths.split(ZERO_WIDTH_SPACE)
                     ]
                 )
             else:
-                new_paths = paths
+                new_paths = art_paths
 
             cursor.execute(
                 "UPDATE album SET embed_art_path = ?, paths = ? WHERE id = ?",
                 (new_embed_path, new_paths, id),
             )
-        cursor.execute("COMMIT")
+
+        if dry_run:
+            print("[Dry Run] Migration ran successfully")
+            cursor.execute("ROLLBACK")
+        else:
+            print("Migration ran successfully. Make sure to do a full rescan")
+            cursor.execute("COMMIT")
     except:
         cursor.execute("ROLLBACK")
         raise

@@ -1,21 +1,38 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser
 from hashlib import md5
+from os.path import basename, isdir, join
 from pathlib import Path
 from sqlite3 import connect
+from shutil import move as fsmove
 from traceback import print_exc
 from typing import List, Literal, NoReturn, Optional, Tuple
 
 parser = ArgumentParser(description="Navidrome database migrator")
 parser.add_argument("db_path", help="Path to your navidrome.db")
 parser.add_argument(
+    "-d",
+    "--dry-run",
+    action="store_true",
+    default=False,
+    help="If true, undo all changes before exit (useful primarily for testing)",
+)
+
+subparsers = parser.add_subparsers(
+    title="Subcommands", description="Subcommands", required=True, dest="command"
+)
+
+migrate = subparsers.add_parser(
+    "migrate", help="Migrate your entire library from one location to another"
+)
+migrate.add_argument(
     "old_path",
     help="The full path to your music library before migration",
 )
-parser.add_argument(
+migrate.add_argument(
     "new_path", help="The full path to your music library after migration"
 )
-parser.add_argument(
+migrate.add_argument(
     "-v",
     "--validation",
     choices=["full", "short", "none"],
@@ -29,13 +46,15 @@ parser.add_argument(
         "Use this ONLY if you are having issues with full/short because you id not migrate every file over"
     ),
 )
-parser.add_argument(
-    "-d",
-    "--dry-run",
-    action="store_true",
-    default=False,
-    help="If true, undo all changes before exit (useful primarily for testing)",
+
+move = subparsers.add_parser(
+    "move", help="Move a file/directory to another file/directory"
 )
+move.add_argument(
+    "old_path",
+    help="The file/folder to move",
+)
+move.add_argument("new_path", help="The destination of the file/folder")
 
 args = parser.parse_args()
 
@@ -50,12 +69,11 @@ def fail(msg: str) -> NoReturn:
 db_path: str = args.db_path
 old_path: str = args.old_path
 new_path: str = args.new_path
-validation_mode: Literal["full", "short", "none"] = args.validation
 dry_run: bool = args.dry_run
+command: Literal["move", "migrate"] = args.command
 
 if not Path(db_path).is_file():
     fail(f"The database '{db_path}' does not exist")
-
 
 try:
     conn = connect(db_path, isolation_level=None)
@@ -67,56 +85,73 @@ try:
         cursor.execute("PRAGMA defer_foreign_keys = ON")
         cursor.execute("BEGIN")
 
-        result: Tuple[int] = conn.execute(
-            "SELECT COUNT(*) FROM media_file WHERE path LIKE ? || '%'",
-            (old_path,),
-        ).fetchone()
-        path_count = result[0]
+        if command == "move" and isdir(new_path):
+            new_path = join(new_path, basename(old_path))
+            print(f"Moving to a directory. Full path is {new_path}")
 
-        result = conn.execute("SELECT COUNT(*) from media_file").fetchone()
-        full_count = result[0]
-
-        if path_count != full_count:
-            paths: List[Tuple[str]] = conn.execute(
-                "SELECT path FROM media_file"
-            ).fetchall()
-
-            prefix = paths[0][0]
-            for (path,) in paths[1:]:
-                for j in range(min(len(prefix), len(path))):
-                    if prefix[j] != path[j]:
-                        prefix = prefix[:j]
-                        break
-
-            raise Exception(
-                (
-                    f"The prefix {old_path} does not match all of the songs in your library ({path_count} vs {full_count}).\n"
-                    "Please make sure you are using the correct path.\n"
-                    f"Based off of your database, the shortest path that matches all of your files is {prefix}\n"
-                )
-            )
-
-        if validation_mode == "none":
-            sample_paths: List[Tuple[str]] = []
-        elif validation_mode == "full":
-            sample_paths = conn.execute("SELECT path FROM media_file").fetchall()
-        else:
-            sample_path: Tuple[str] = cursor.execute(
-                "SELECT path FROM media_file LIMIT 1"
+        OLD_QUERY_ARGS = (old_path,)
+        if command == "migrate":
+            result: Tuple[int] = conn.execute(
+                "SELECT COUNT(*) FROM media_file WHERE path LIKE ? || '%'",
+                OLD_QUERY_ARGS,
             ).fetchone()
-            sample_paths = [sample_path]
+            path_count = result[0]
 
-        for sample_path in sample_paths:
-            sample_new_path = sample_path[0].replace(old_path, new_path, 1)
+            result = conn.execute("SELECT COUNT(*) from media_file").fetchone()
+            full_count = result[0]
 
-            if not Path(sample_new_path).is_file():
+            if path_count != full_count:
+                paths: List[Tuple[str]] = conn.execute(
+                    "SELECT path FROM media_file"
+                ).fetchall()
+
+                prefix = paths[0][0]
+                for (path,) in paths[1:]:
+                    for j in range(min(len(prefix), len(path))):
+                        if prefix[j] != path[j]:
+                            prefix = prefix[:j]
+                            break
+
                 raise Exception(
-                    f"Could not find a file at '{sample_new_path}'. Please make sure the new path is correct"
+                    (
+                        f"The prefix {old_path} does not match all of the songs in your library ({path_count} vs {full_count}).\n"
+                        "Please make sure you are using the correct path.\n"
+                        f"Based off of your database, the shortest path that matches all of your files is {prefix}\n"
+                    )
                 )
+
+            validation_mode: Literal["full", "short", "none"] = args.validation
+            if validation_mode == "none":
+                sample_paths: List[Tuple[str]] = []
+            elif validation_mode == "full":
+                sample_paths = conn.execute(
+                    "SELECT path FROM media_file WHERE path LIKE ? || '%'",
+                    OLD_QUERY_ARGS,
+                ).fetchall()
+            else:
+                sample_path: Tuple[str] = cursor.execute(
+                    "SELECT path FROM media_file WHERE path LIKE ? || '%' LIMIT 1",
+                    OLD_QUERY_ARGS,
+                ).fetchone()
+                sample_paths = [sample_path]
+
+            for sample_path in sample_paths:
+                sample_new_path = sample_path[0].replace(old_path, new_path, 1)
+
+                if not Path(sample_new_path).is_file():
+                    raise Exception(
+                        f"Could not find a file at '{sample_new_path}'. Please make sure the new path is correct"
+                    )
+
+        if command == "move":
+            if dry_run:
+                print(f"[Dry Run] {old_path} would be moved to {new_path}")
+            else:
+                fsmove(old_path, new_path)
 
         # update media file path and hash
         media_files: List[Tuple[str, str]] = cursor.execute(
-            "SELECT id, path from media_file"
+            "SELECT id, path from media_file WHERE path LIKE ? || '%'", OLD_QUERY_ARGS
         ).fetchall()
         for id, path in media_files:
             new_track_path = path.replace(old_path, new_path, 1)

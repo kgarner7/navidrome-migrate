@@ -21,7 +21,7 @@ This is useful if you have changed the path to your entire library (e.g. migrati
 Usage:
 
 1. Stop Navidrome.
-2. Back up your database (make a copy of `navidrome.db`)
+2. Back up your database (make a copy of `navidrome.db`). If there are `navidrome.db-shm` and `navidrome.db-wal`, save those as well.
 3. Make note of the original path to your music library. This must be the FULL path to your library.
 4. Copy/move your music to the new music folder. (The script will check the validity of the new paths)
    - The new music path may contain symlinks if needed

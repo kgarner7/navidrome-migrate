@@ -8,6 +8,15 @@ from shutil import move as fsmove
 from traceback import print_exc
 from typing import List, Literal, NoReturn, Optional, Tuple
 
+
+def execute_sql(cursor, query, params=None):
+    if params:
+       #print("Executing SQL Query:", query, "with params:", params)
+        cursor.execute(query, params)
+    else:
+        #print("Executing SQL Query:", query)
+        cursor.execute(query)
+
 parser = ArgumentParser(description="Navidrome database migrator")
 parser.add_argument("db_path", help="Path to your navidrome.db")
 parser.add_argument(
@@ -43,7 +52,7 @@ migrate.add_argument(
         "Note that [full] validation may take a while for large libraries, and will fail"
         "if you did not migrate over every file. "
         "none will disable ALL checks of directory integrity. "
-        "Use this ONLY if you are having issues with full/short because you id not migrate every file over"
+        "Use this ONLY if you are having issues with full/short because you did not migrate every file over"
     ),
 )
 
@@ -56,6 +65,20 @@ move.add_argument(
 )
 move.add_argument("new_path", help="The destination of the file/folder")
 
+# New "changeLink" option
+change_link = subparsers.add_parser(
+    "changeLink",
+    help="Open the database and swap the system paths only without migrating files",
+)
+change_link.add_argument(
+    "old_path",
+    help="The old system path to be changed",
+)
+change_link.add_argument(
+    "new_path",
+    help="The new system path to replace the old one",
+)
+
 args = parser.parse_args()
 
 ZERO_WIDTH_SPACE = "\u200b"
@@ -65,12 +88,11 @@ def fail(msg: str) -> NoReturn:
     print("ERROR:", msg)
     exit(-1)
 
-
 db_path: str = args.db_path
 old_path: str = args.old_path
 new_path: str = args.new_path
 dry_run: bool = args.dry_run
-command: Literal["move", "migrate"] = args.command
+command: Literal["move", "migrate", "changeLink"] = args.command
 
 if not Path(db_path).is_file():
     fail(f"The database '{db_path}' does not exist")
@@ -148,43 +170,60 @@ try:
                 print(f"[Dry Run] {old_path} would be moved to {new_path}")
             else:
                 fsmove(old_path, new_path)
+        elif command == "changeLink":
+            #Change the links, WITHOUT moving files
+            # Update media file path and hash for the "changeLink" option
+            media_files: List[Tuple[str, str]] = cursor.execute(
+                "SELECT id, path from media_file WHERE path LIKE ? || '%'", OLD_QUERY_ARGS
+            ).fetchall()
+            for id, path in media_files:
+                new_track_path = path.replace(old_path, new_path, 1)
+                new_id = md5(new_track_path.encode()).hexdigest()
+                execute_sql(
+                    cursor,
+                    "UPDATE media_file SET id = ?, path = ? where id = ?",
+                    (new_id, new_track_path, id),
+                )
 
-        # update media file path and hash
-        media_files: List[Tuple[str, str]] = cursor.execute(
-            "SELECT id, path from media_file WHERE path LIKE ? || '%'", OLD_QUERY_ARGS
-        ).fetchall()
-        for id, path in media_files:
-            new_track_path = path.replace(old_path, new_path, 1)
-            new_id = md5(new_track_path.encode()).hexdigest()
+                changes = (new_id, id)
 
-            cursor.execute(
-                "UPDATE media_file SET id = ?, path = ? where id = ?",
-                (new_id, new_track_path, id),
+                # Update ids of items that reference to this
+                execute_sql(
+                    cursor,
+                    "UPDATE annotation SET item_id = ? WHERE item_id = ? AND item_type = 'media_file'",
+                    changes,
+                )
+
+                execute_sql(
+                    cursor,
+                    "UPDATE media_file_genres SET media_file_id = ? WHERE media_file_id = ?",
+                    changes,
+                )
+
+                execute_sql(
+                    cursor,
+                    "UPDATE playlist_tracks SET media_file_id = ? WHERE media_file_id = ?",
+                    changes,
+                )
+
+                execute_sql(
+                    cursor,
+                    "UPDATE scrobble_buffer SET media_file_id = ? WHERE media_file_id = ?",
+                    changes,
+                )
+
+            # Update albums and playlists paths
+            execute_sql(
+                cursor,
+                "UPDATE album SET paths = REPLACE(paths, ?, ?)",
+                (old_path, new_path),
             )
 
-            changes = (new_id, id)
-
-            # Update ids of items that reference to this
-            cursor.execute(
-                "UPDATE annotation SET item_id = ? WHERE item_id = ? AND item_type = 'media_file'",
-                changes,
+            execute_sql(
+                cursor,
+                "UPDATE playlist SET path = REPLACE(path, ?, ?) WHERE path != ''",
+                (old_path, new_path),
             )
-
-            cursor.execute(
-                "UPDATE media_file_genres SET media_file_id = ? WHERE media_file_id = ?",
-                changes,
-            )
-
-            cursor.execute(
-                "UPDATE playlist_tracks SET media_file_id = ? WHERE media_file_id = ?",
-                changes,
-            )
-
-            cursor.execute(
-                "UPDATE scrobble_buffer SET media_file_id = ? WHERE media_file_id = ?",
-                changes,
-            )
-
         # Update smart playlist paths
         cursor.execute(
             "UPDATE playlist SET path = ? || SUBSTRING(path, ?) WHERE path != ''",

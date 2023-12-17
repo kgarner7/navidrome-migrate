@@ -245,6 +245,10 @@ try:
         for id, embed, art_paths in albums:
             new_embed_path = embed.replace(old_path, new_path, 1)
 
+            if args.replace_slashes:
+                new_embed_path = new_embed_path.replace("\\", "/")
+
+
             if art_paths:
                 new_paths: Optional[str] = ZERO_WIDTH_SPACE.join(
                     [
@@ -254,7 +258,14 @@ try:
                 )
             else:
                 new_paths = art_paths
+            
+            if args.replace_slashes:
+                    new_paths = new_paths.replace("\\", "/")
 
+            cursor.execute(
+                "UPDATE album SET embed_art_path = ?, paths = ? WHERE id = ?",
+                (new_embed_path, new_paths, id),
+            )
             cursor.execute(
                 "UPDATE album SET embed_art_path = ?, paths = ? WHERE id = ?",
                 (new_embed_path, new_paths, id),

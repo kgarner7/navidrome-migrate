@@ -177,6 +177,7 @@ try:
                 fsmove(old_path, new_path)
         elif command == "changeLink":
             # Update media file path and hash for the "changeLink" option
+            # The intention of this option is to change the Windows path \ sign to Linux's / sign
             media_files: List[Tuple[str, str]] = cursor.execute(
                 "SELECT id, path from media_file WHERE path LIKE ? || '%'", OLD_QUERY_ARGS
             ).fetchall()
@@ -238,7 +239,7 @@ try:
             (new_path, len(old_path) + 1),
         )
 
-        # Update albums
+        # Update albums embed_art_path column
         albums: List[Tuple[str, str, Optional[str]]] = cursor.execute(
             "SELECT id, embed_art_path, paths FROM album"
         ).fetchall()
@@ -266,10 +267,29 @@ try:
                 "UPDATE album SET embed_art_path = ?, paths = ? WHERE id = ?",
                 (new_embed_path, new_paths, id),
             )
+        # Update albums image_files column
+        albums: List[Tuple[str, str, Optional[str]]] = cursor.execute(
+            "SELECT id, image_files FROM album"
+        ).fetchall()
+        for id, image_files in albums:
+            if image_files:
+                new_image_files: Optional[str] = ZERO_WIDTH_SPACE.join(
+                    [
+                        path.replace(old_path, new_path, 1)
+                        for path in image_files.split(ZERO_WIDTH_SPACE)
+                    ]
+                )
+            else:
+                new_image_files = image_files
+
+            if args.replace_slashes:
+                new_image_files = new_image_files.replace("\\", "/")
+
             cursor.execute(
-                "UPDATE album SET embed_art_path = ?, paths = ? WHERE id = ?",
-                (new_embed_path, new_paths, id),
+                "UPDATE album SET image_files = ? WHERE id = ?",
+                (new_image_files, id),
             )
+
         if dry_run:
             print("[Dry Run] Migration ran successfully")
             cursor.execute("ROLLBACK")

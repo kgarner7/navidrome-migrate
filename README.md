@@ -34,7 +34,7 @@ Using the `changeLink` option, this will allow you to just change all the paths 
 
 Example `python3 migrate.py navidrome.db changeLink 'E:\Media Server Content\' 'D:\Media Server Content\'`
 
-####Moving From Windows To Linux/Mac
+###Moving From Windows To Linux/Mac
 Moving your Navidrome from a Windows machine to a Linux or Mac based operating system can be a pain. If you moved your files already and, along with the `changeLink` option, use the `--replace-slashes` option, it will allow any \\'s (Windows path) to be replaced with /'s (Linux/Unix path).
 
 Example `python3 migrate.py navidrome.db changeLink 'E:\Media Server Content\' '/mnt/drive/Media Server Content/' --replace-slashes`

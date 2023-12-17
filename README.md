@@ -29,6 +29,17 @@ Usage:
 6. Change the `MusicFolder`/`ND_MUSICFOLDER` variable to point to the new location of your library.
 7. Start Navidrome, and run a full scan.
 
+### Already Moved Library And Only Need File Path Changes
+Using the `changeLink` option, this will allow you to just change all the paths and md5 hashes, without moving your files. Perhaps you are moving from one system to another and the file systems may not be the same.
+
+Example `python3 migrate.py navidrome.db changeLink 'E:\Media Server Content\' 'D:\Media Server Content\'`
+
+####Moving From Windows To Linux/Mac
+Moving your Navidrome from a Windows machine to a Linux or Mac based operating system can be a pain. If you moved your files already and, along with the `changeLink` option, use the `--replace-slashes` option, it will allow any \\'s (Windows path) to be replaced with /'s (Linux/Unix path).
+
+Example `python3 migrate.py navidrome.db changeLink 'E:\Media Server Content\' '/mnt/drive/Media Server Content/' --replace-slashes`
+- This will replace something such as `E:\Media Server Content\blah\blah.mp3` to `/mnt/drive/Media Server Content/blah/blah.mp3`
+
 ### Moving file/directory
 
 This is useful if you just want to move a single folder in your library.

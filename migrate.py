@@ -8,7 +8,6 @@ from shutil import move as fsmove
 from traceback import print_exc
 from typing import List, Literal, NoReturn, Optional, Tuple
 
-
 def execute_sql(cursor, query, params=None):
     if params:
        #print("Executing SQL Query:", query, "with params:", params)
@@ -65,7 +64,7 @@ move.add_argument(
 )
 move.add_argument("new_path", help="The destination of the file/folder")
 
-# New "changeLink" option
+# Add the "changeLink" subcommand
 change_link = subparsers.add_parser(
     "changeLink",
     help="Open the database and swap the system paths only without migrating files",
@@ -77,6 +76,12 @@ change_link.add_argument(
 change_link.add_argument(
     "new_path",
     help="The new system path to replace the old one",
+)
+change_link.add_argument(
+    "--replace-slashes",
+    action="store_true",
+    default=False,
+    help="Replace backslashes with forward slashes in the database paths",
 )
 
 args = parser.parse_args()
@@ -171,13 +176,16 @@ try:
             else:
                 fsmove(old_path, new_path)
         elif command == "changeLink":
-            #Change the links, WITHOUT moving files
             # Update media file path and hash for the "changeLink" option
             media_files: List[Tuple[str, str]] = cursor.execute(
                 "SELECT id, path from media_file WHERE path LIKE ? || '%'", OLD_QUERY_ARGS
             ).fetchall()
             for id, path in media_files:
                 new_track_path = path.replace(old_path, new_path, 1)
+
+                if args.replace_slashes:
+                    new_track_path = new_track_path.replace("\\", "/")
+
                 new_id = md5(new_track_path.encode()).hexdigest()
                 execute_sql(
                     cursor,
@@ -251,7 +259,6 @@ try:
                 "UPDATE album SET embed_art_path = ?, paths = ? WHERE id = ?",
                 (new_embed_path, new_paths, id),
             )
-
         if dry_run:
             print("[Dry Run] Migration ran successfully")
             cursor.execute("ROLLBACK")

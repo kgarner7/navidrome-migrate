@@ -8,14 +8,6 @@ from shutil import move as fsmove
 from traceback import print_exc
 from typing import List, Literal, NoReturn, Optional, Tuple
 
-def execute_sql(cursor, query, params=None):
-    if params:
-       #print("Executing SQL Query:", query, "with params:", params)
-        cursor.execute(query, params)
-    else:
-        #print("Executing SQL Query:", query)
-        cursor.execute(query)
-
 parser = ArgumentParser(description="Navidrome database migrator")
 parser.add_argument("db_path", help="Path to your navidrome.db")
 parser.add_argument(
@@ -106,6 +98,11 @@ try:
     conn = connect(db_path, isolation_level=None)
     try:
         cursor = conn.cursor()
+        def execute_sql(cursor, query, params=None):
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
         cursor.execute("PRAGMA foreign_keys = ON")
         # Since we are messing with media file ids, this will give us trouble.
         # defer checking foreign key constraints until the end
@@ -268,7 +265,7 @@ try:
                 (new_embed_path, new_paths, id),
             )
         # Update albums image_files column
-        albums: List[Tuple[str, str, Optional[str]]] = cursor.execute(
+        albums: List[Tuple[str, str]] = cursor.execute(
             "SELECT id, image_files FROM album"
         ).fetchall()
         for id, image_files in albums:

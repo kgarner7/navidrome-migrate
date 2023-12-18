@@ -70,10 +70,16 @@ change_link.add_argument(
     help="The new system path to replace the old one",
 )
 change_link.add_argument(
-    "--replace-slashes",
+    "--windowsToLinuxPath",
     action="store_true",
     default=False,
     help="Replace backslashes with forward slashes in the database paths",
+)
+change_link.add_argument(
+    "--linuxToWindowsPath",
+    action="store_true",
+    default=False,
+    help="Replace forward slashes with backslashes in the database paths",
 )
 
 args = parser.parse_args()
@@ -84,6 +90,10 @@ ZERO_WIDTH_SPACE = "\u200b"
 def fail(msg: str) -> NoReturn:
     print("ERROR:", msg)
     exit(-1)
+
+# Check if both --windowsToLinuxPath and --linuxToWindowsPath are set
+if args.windowsToLinuxPath and args.linuxToWindowsPath:
+    fail("You can only set one of --windowsToLinuxPath or --linuxToWindowsPath")
 
 db_path: str = args.db_path
 old_path: str = args.old_path
@@ -181,8 +191,10 @@ try:
             for id, path in media_files:
                 new_track_path = path.replace(old_path, new_path, 1)
 
-                if args.replace_slashes:
+                if args.windowsToLinuxPath:
                     new_track_path = new_track_path.replace("\\", "/")
+                if args.linuxToWindowsPath:
+                    new_track_path = new_track_path.replace("/", "\\",)
 
                 new_id = md5(new_track_path.encode()).hexdigest()
                 execute_sql(
@@ -243,8 +255,10 @@ try:
         for id, embed, art_paths in albums:
             new_embed_path = embed.replace(old_path, new_path, 1)
 
-            if args.replace_slashes:
+            if args.windowsToLinuxPath:
                 new_embed_path = new_embed_path.replace("\\", "/")
+            if args.linuxToWindowsPath:
+                new_embed_path = new_embed_path.replace("/", "\\",)
 
 
             if art_paths:
@@ -257,8 +271,10 @@ try:
             else:
                 new_paths = art_paths
             
-            if args.replace_slashes:
-                    new_paths = new_paths.replace("\\", "/")
+            if args.windowsToLinuxPath:
+                new_paths = new_paths.replace("\\", "/")
+            if args.linuxToWindowsPath:
+                new_paths = new_paths.replace("/", "\\",)
 
             cursor.execute(
                 "UPDATE album SET embed_art_path = ?, paths = ? WHERE id = ?",
@@ -279,8 +295,10 @@ try:
             else:
                 new_image_files = image_files
 
-            if args.replace_slashes:
+            if args.windowsToLinuxPath:
                 new_image_files = new_image_files.replace("\\", "/")
+            if args.linuxToWindowsPath:
+                new_image_files = new_image_files.replace("/", "\\",)
 
             cursor.execute(
                 "UPDATE album SET image_files = ? WHERE id = ?",

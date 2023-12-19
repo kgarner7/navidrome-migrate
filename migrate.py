@@ -5,6 +5,7 @@ from os.path import basename, isdir, join
 from pathlib import Path
 from sqlite3 import connect
 from shutil import move as fsmove
+import sqlite3
 from traceback import print_exc
 from typing import List, Literal, NoReturn, Optional, Tuple
 
@@ -113,7 +114,7 @@ try:
     try:
         cursor = conn.cursor()
 
-        def execute_sql(cursor, query, params=None) -> None:
+        def execute_sql(cursor: sqlite3.Cursor, query: str, params: str = "None") -> None:
             if params:
                 cursor.execute(query, params)
             else:

@@ -91,14 +91,18 @@ def fail(msg: str) -> NoReturn:
     print("ERROR:", msg)
     exit(-1)
 
-# Check if both --windowsToLinuxPath and --linuxToWindowsPath are set
-if args.windowsToLinuxPath and args.linuxToWindowsPath:
-    fail("You can only set one of --windowsToLinuxPath or --linuxToWindowsPath")
 
 db_path: str = args.db_path
 old_path: str = args.old_path
 new_path: str = args.new_path
 dry_run: bool = args.dry_run
+windowsToLinuxPath: bool = args.windowsToLinuxPath
+linuxToWindowsPath: bool = args.linuxToWindowsPath
+
+# Check if both --windowsToLinuxPath and --linuxToWindowsPath are set
+if windowsToLinuxPath and linuxToWindowsPath:
+    fail("You can only set one of --windowsToLinuxPath or --linuxToWindowsPath")
+
 command: Literal["move", "migrate", "changeLink"] = args.command
 
 if not Path(db_path).is_file():
@@ -108,11 +112,13 @@ try:
     conn = connect(db_path, isolation_level=None)
     try:
         cursor = conn.cursor()
-        def execute_sql(cursor, query, params=None):
+
+        def execute_sql(cursor, query, params=None) -> None:
             if params:
                 cursor.execute(query, params)
             else:
                 cursor.execute(query)
+
         cursor.execute("PRAGMA foreign_keys = ON")
         # Since we are messing with media file ids, this will give us trouble.
         # defer checking foreign key constraints until the end
@@ -186,7 +192,8 @@ try:
             # Update media file path and hash for the "changeLink" option
             # The intention of this option is to change the Windows path \ sign to Linux's / sign
             media_files: List[Tuple[str, str]] = cursor.execute(
-                "SELECT id, path from media_file WHERE path LIKE ? || '%'", OLD_QUERY_ARGS
+                "SELECT id, path from media_file WHERE path LIKE ? || '%'",
+                OLD_QUERY_ARGS,
             ).fetchall()
             for id, path in media_files:
                 new_track_path = path.replace(old_path, new_path, 1)
@@ -194,7 +201,10 @@ try:
                 if args.windowsToLinuxPath:
                     new_track_path = new_track_path.replace("\\", "/")
                 if args.linuxToWindowsPath:
-                    new_track_path = new_track_path.replace("/", "\\",)
+                    new_track_path = new_track_path.replace(
+                        "/",
+                        "\\",
+                    )
 
                 new_id = md5(new_track_path.encode()).hexdigest()
                 execute_sql(
@@ -258,8 +268,10 @@ try:
             if args.windowsToLinuxPath:
                 new_embed_path = new_embed_path.replace("\\", "/")
             if args.linuxToWindowsPath:
-                new_embed_path = new_embed_path.replace("/", "\\",)
-
+                new_embed_path = new_embed_path.replace(
+                    "/",
+                    "\\",
+                )
 
             if art_paths:
                 new_paths: Optional[str] = ZERO_WIDTH_SPACE.join(
@@ -270,11 +282,14 @@ try:
                 )
             else:
                 new_paths = art_paths
-            
+
             if args.windowsToLinuxPath:
                 new_paths = new_paths.replace("\\", "/")
             if args.linuxToWindowsPath:
-                new_paths = new_paths.replace("/", "\\",)
+                new_paths = new_paths.replace(
+                    "/",
+                    "\\",
+                )
 
             cursor.execute(
                 "UPDATE album SET embed_art_path = ?, paths = ? WHERE id = ?",
@@ -298,7 +313,10 @@ try:
             if args.windowsToLinuxPath:
                 new_image_files = new_image_files.replace("\\", "/")
             if args.linuxToWindowsPath:
-                new_image_files = new_image_files.replace("/", "\\",)
+                new_image_files = new_image_files.replace(
+                    "/",
+                    "\\",
+                )
 
             cursor.execute(
                 "UPDATE album SET image_files = ? WHERE id = ?",

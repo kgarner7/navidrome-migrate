@@ -114,7 +114,9 @@ try:
     try:
         cursor = conn.cursor()
 
-        def execute_sql(cursor: sqlite3.Cursor, query: str, params: str = "None") -> None:
+        def execute_sql(
+            cursor: sqlite3.Cursor, query: str, params: Optional[Tuple[str, ...]] = None
+        ) -> None:
             if params:
                 cursor.execute(query, params)
             else:
@@ -199,9 +201,9 @@ try:
             for id, path in media_files:
                 new_track_path = path.replace(old_path, new_path, 1)
 
-                if args.windowsToLinuxPath:
+                if windowsToLinuxPath:
                     new_track_path = new_track_path.replace("\\", "/")
-                if args.linuxToWindowsPath:
+                if linuxToWindowsPath:
                     new_track_path = new_track_path.replace(
                         "/",
                         "\\",
@@ -260,22 +262,22 @@ try:
         )
 
         # Update albums embed_art_path column
-        albums: List[Tuple[str, str, Optional[str]]] = cursor.execute(
+        albums: List[Tuple[str, str, str]] = cursor.execute(
             "SELECT id, embed_art_path, paths FROM album"
         ).fetchall()
         for id, embed, art_paths in albums:
             new_embed_path = embed.replace(old_path, new_path, 1)
 
-            if args.windowsToLinuxPath:
+            if windowsToLinuxPath:
                 new_embed_path = new_embed_path.replace("\\", "/")
-            if args.linuxToWindowsPath:
+            if linuxToWindowsPath:
                 new_embed_path = new_embed_path.replace(
                     "/",
                     "\\",
                 )
 
             if art_paths:
-                new_paths: Optional[str] = ZERO_WIDTH_SPACE.join(
+                new_paths: str = ZERO_WIDTH_SPACE.join(
                     [
                         path.replace(old_path, new_path, 1)
                         for path in art_paths.split(ZERO_WIDTH_SPACE)
@@ -284,9 +286,9 @@ try:
             else:
                 new_paths = art_paths
 
-            if args.windowsToLinuxPath:
+            if windowsToLinuxPath:
                 new_paths = new_paths.replace("\\", "/")
-            if args.linuxToWindowsPath:
+            if linuxToWindowsPath:
                 new_paths = new_paths.replace(
                     "/",
                     "\\",
@@ -297,12 +299,10 @@ try:
                 (new_embed_path, new_paths, id),
             )
         # Update albums image_files column
-        albums: List[Tuple[str, str]] = cursor.execute(
-            "SELECT id, image_files FROM album"
-        ).fetchall()
-        for id, image_files in albums:
+        albums = cursor.execute("SELECT id, image_files FROM album").fetchall()
+        for id, image_files, *_ in albums:
             if image_files:
-                new_image_files: Optional[str] = ZERO_WIDTH_SPACE.join(
+                new_image_files: str = ZERO_WIDTH_SPACE.join(
                     [
                         path.replace(old_path, new_path, 1)
                         for path in image_files.split(ZERO_WIDTH_SPACE)
@@ -311,9 +311,9 @@ try:
             else:
                 new_image_files = image_files
 
-            if args.windowsToLinuxPath:
+            if windowsToLinuxPath:
                 new_image_files = new_image_files.replace("\\", "/")
-            if args.linuxToWindowsPath:
+            if linuxToWindowsPath:
                 new_image_files = new_image_files.replace(
                     "/",
                     "\\",

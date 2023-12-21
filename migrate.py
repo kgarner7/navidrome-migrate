@@ -99,10 +99,15 @@ new_path: str = args.new_path
 dry_run: bool = args.dry_run
 windowsToLinuxPath: bool = args.windowsToLinuxPath
 linuxToWindowsPath: bool = args.linuxToWindowsPath
+path_Slash_Change: List[str] = []
 
 # Check if both --windowsToLinuxPath and --linuxToWindowsPath are set
 if windowsToLinuxPath and linuxToWindowsPath:
     fail("You can only set one of --windowsToLinuxPath or --linuxToWindowsPath")
+elif windowsToLinuxPath:
+    path_Slash_Change = ["\\", "/"]
+elif linuxToWindowsPath:
+    path_Slash_Change = ["/", "\\"]
 
 command: Literal["move", "migrate", "changeLink"] = args.command
 
@@ -201,13 +206,8 @@ try:
             for id, path in media_files:
                 new_track_path = path.replace(old_path, new_path, 1)
 
-                if windowsToLinuxPath:
-                    new_track_path = new_track_path.replace("\\", "/")
-                if linuxToWindowsPath:
-                    new_track_path = new_track_path.replace(
-                        "/",
-                        "\\",
-                    )
+                if path_Slash_Change:
+                    new_track_path.replace(path_Slash_Change[0], path_Slash_Change[1])
 
                 new_id = md5(new_track_path.encode()).hexdigest()
                 execute_sql(
@@ -268,13 +268,8 @@ try:
         for id, embed, art_paths in albums:
             new_embed_path = embed.replace(old_path, new_path, 1)
 
-            if windowsToLinuxPath:
-                new_embed_path = new_embed_path.replace("\\", "/")
-            if linuxToWindowsPath:
-                new_embed_path = new_embed_path.replace(
-                    "/",
-                    "\\",
-                )
+            if path_Slash_Change:
+                new_embed_path.replace(path_Slash_Change[0], path_Slash_Change[1])
 
             if art_paths:
                 new_paths: str = ZERO_WIDTH_SPACE.join(
@@ -286,13 +281,8 @@ try:
             else:
                 new_paths = art_paths
 
-            if windowsToLinuxPath:
-                new_paths = new_paths.replace("\\", "/")
-            if linuxToWindowsPath:
-                new_paths = new_paths.replace(
-                    "/",
-                    "\\",
-                )
+            if path_Slash_Change:
+                new_paths.replace(path_Slash_Change[0], path_Slash_Change[1])
 
             cursor.execute(
                 "UPDATE album SET embed_art_path = ?, paths = ? WHERE id = ?",
@@ -311,13 +301,8 @@ try:
             else:
                 new_image_files = image_files
 
-            if windowsToLinuxPath:
-                new_image_files = new_image_files.replace("\\", "/")
-            if linuxToWindowsPath:
-                new_image_files = new_image_files.replace(
-                    "/",
-                    "\\",
-                )
+            if path_Slash_Change:
+                new_image_files.replace(path_Slash_Change[0], path_Slash_Change[1])
 
             cursor.execute(
                 "UPDATE album SET image_files = ? WHERE id = ?",

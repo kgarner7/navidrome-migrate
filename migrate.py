@@ -71,13 +71,13 @@ change_link.add_argument(
     help="The new system path to replace the old one",
 )
 change_link.add_argument(
-    "--windowsToLinuxPath",
+    "--windows_to_linux_path",
     action="store_true",
     default=False,
     help="Replace backslashes with forward slashes in the database paths",
 )
 change_link.add_argument(
-    "--linuxToWindowsPath",
+    "--linux_to_windows_path",
     action="store_true",
     default=False,
     help="Replace forward slashes with backslashes in the database paths",
@@ -97,16 +97,16 @@ db_path: str = args.db_path
 old_path: str = args.old_path
 new_path: str = args.new_path
 dry_run: bool = args.dry_run
-windowsToLinuxPath: bool = args.windowsToLinuxPath
-linuxToWindowsPath: bool = args.linuxToWindowsPath
+windows_to_linux_path: bool = args.windows_to_linux_path
+linux_to_windows_path: bool = args.linux_to_windows_path
 path_Slash_Change: List[str] = []
 
-# Check if both --windowsToLinuxPath and --linuxToWindowsPath are set
-if windowsToLinuxPath and linuxToWindowsPath:
-    fail("You can only set one of --windowsToLinuxPath or --linuxToWindowsPath")
-elif windowsToLinuxPath:
+# Check if both --windows_to_linux_path and --linux_to_windows_path are set
+if windows_to_linux_path and linux_to_windows_path:
+    fail("You can only set one of --windows_to_linux_path or --linux_to_windows_path")
+elif windows_to_linux_path:
     path_Slash_Change = ["\\", "/"]
-elif linuxToWindowsPath:
+elif linux_to_windows_path:
     path_Slash_Change = ["/", "\\"]
 
 command: Literal["move", "migrate", "changeLink"] = args.command

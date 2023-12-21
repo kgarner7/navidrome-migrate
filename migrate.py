@@ -118,15 +118,6 @@ try:
     conn = connect(db_path, isolation_level=None)
     try:
         cursor = conn.cursor()
-
-        def execute_sql(
-            cursor: sqlite3.Cursor, query: str, params: Optional[Tuple[str, ...]] = None
-        ) -> None:
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-
         cursor.execute("PRAGMA foreign_keys = ON")
         # Since we are messing with media file ids, this will give us trouble.
         # defer checking foreign key constraints until the end
@@ -210,8 +201,7 @@ try:
                     new_track_path.replace(path_Slash_Change[0], path_Slash_Change[1])
 
                 new_id = md5(new_track_path.encode()).hexdigest()
-                execute_sql(
-                    cursor,
+                cursor.execute(
                     "UPDATE media_file SET id = ?, path = ? where id = ?",
                     (new_id, new_track_path, id),
                 )
@@ -219,39 +209,33 @@ try:
                 changes = (new_id, id)
 
                 # Update ids of items that reference to this
-                execute_sql(
-                    cursor,
+                cursor.execute(
                     "UPDATE annotation SET item_id = ? WHERE item_id = ? AND item_type = 'media_file'",
                     changes,
                 )
 
-                execute_sql(
-                    cursor,
+                cursor.execute(
                     "UPDATE media_file_genres SET media_file_id = ? WHERE media_file_id = ?",
                     changes,
                 )
 
-                execute_sql(
-                    cursor,
+                cursor.execute(
                     "UPDATE playlist_tracks SET media_file_id = ? WHERE media_file_id = ?",
                     changes,
                 )
 
-                execute_sql(
-                    cursor,
+                cursor.execute(
                     "UPDATE scrobble_buffer SET media_file_id = ? WHERE media_file_id = ?",
                     changes,
                 )
 
             # Update albums and playlists paths
-            execute_sql(
-                cursor,
+            cursor.execute(
                 "UPDATE album SET paths = REPLACE(paths, ?, ?)",
                 (old_path, new_path),
             )
 
-            execute_sql(
-                cursor,
+            cursor.execute(
                 "UPDATE playlist SET path = REPLACE(path, ?, ?) WHERE path != ''",
                 (old_path, new_path),
             )
@@ -299,7 +283,7 @@ try:
                     ]
                 )
             else:
-                new_image_files = image_files
+                continue
 
             if path_Slash_Change:
                 new_image_files.replace(path_Slash_Change[0], path_Slash_Change[1])

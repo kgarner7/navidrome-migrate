@@ -289,8 +289,8 @@ try:
                 (new_embed_path, new_paths, id),
             )
         # Update albums image_files column
-        albums = cursor.execute("SELECT id, image_files FROM album").fetchall()
-        for id, image_files, *_ in albums:
+        album_images: List[Tuple[str, str]] = cursor.execute("SELECT id, image_files FROM album").fetchall()
+        for id, image_files in album_images:
             if image_files:
                 new_image_files: str = ZERO_WIDTH_SPACE.join(
                     [

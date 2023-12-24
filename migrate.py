@@ -5,7 +5,6 @@ from os.path import basename, isdir, join
 from pathlib import Path
 from sqlite3 import connect
 from shutil import move as fsmove
-import sqlite3
 from traceback import print_exc
 from typing import List, Literal, NoReturn, Optional, Tuple
 

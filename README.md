@@ -25,25 +25,31 @@ Usage:
 3. Make note of the original path to your music library. This must be the FULL path to your library.
 4. Copy/move your music to the new music folder. (The script will check the validity of the new paths)
    - The new music path may contain symlinks if needed
-5. Run the migration script: `python3 migrate.py PATH_TO_DB migrate ORIGINAL_MUSIC_FOLDER NEW_MUSIC_FOLDER`.
+5. Run the migration script: `python3 migrate.py PATH_TO_DB ORIGINAL_MUSIC_FOLDER NEW_MUSIC_FOLDER`.
 6. Change the `MusicFolder`/`ND_MUSICFOLDER` variable to point to the new location of your library.
 7. Start Navidrome, and run a full scan.
 
-### Already Moved Library And Only Need File Path Changes
-Using the `changeLink` option, this will allow you to just change all the paths and md5 hashes, without moving your files. Perhaps you are moving from one system to another and the file systems may not be the same.
+### Switching between Windows and Linux/macOS
 
-Example `python3 migrate.py navidrome.db changeLink 'E:\Media Server Content\' 'D:\Media Server Content\'`
+Migrating from Windows to a Linux/Mac (or vice versa) can be a pain.
+If you moved your files already and, use the `--dos2unix` option (or `--unix2dos`) and it will convert paths from Windows (`\`) to Unix (`/`) or vice versa.
 
-### Moving From Windows To Linux/Mac
-Moving your Navidrome from a Windows machine to a Linux or Mac based operating system can be a pain. If you moved your files already and, along with the `changeLink` option, use the `--windows_to_linux_path` option, it will allow any \\'s (Windows path) to be replaced with /'s (Linux/Unix path).
+**NOTE**: you should run this option on the **DESTINATION** OS if you want validations to work (they make sure that files exist at the new directory).
 
-Example `python3 migrate.py navidrome.db changeLink 'E:\Media Server Content\' '/mnt/drive/Media Server Content/' --windows_to_linux_path`
+From Windows to Linux/macOS
+
+```
+python3 migrate.py navidrome.db  'E:\Media Server Content\' '/mnt/drive/Media Server Content/' --dos2unix
+```
+
 - This will replace something such as `E:\Media Server Content\blah\blah.mp3` to `/mnt/drive/Media Server Content/blah/blah.mp3`
 
-### Moving From Windows To Linux/Mac
-Moving your Navidrome from a Linux or Mac based operating system to a Windows based operating system can be a pain. If you moved your files already and, along with the `changeLink` option, use the `--linux_to_windows_path` option, it will allow any  /'s (Linux/Unix path) to be replaced with \\'s (Windows path).
+From Linux/macOS to Windows:
 
-Example `python3 migrate.py navidrome.db changeLink '/mnt/drive/Media Server Content/' 'E:\Media Server Content\' --linux_to_windows_path`
+```bash
+python3 migrate.py navidrome.db changeLink '/mnt/drive/Media Server Content/' 'E:\Media Server Content\' --unix2dos
+```
+
 - This will replace something such as `/mnt/drive/Media Server Content/blah/blah.mp3` to `E:\Media Server Content\blah\blah.mp3`
 
 ### Moving file/directory
@@ -54,7 +60,7 @@ This is useful if you just want to move a single folder in your library.
 If you have specified an existing file, it **will** get overridden.
 
 Usage:
-`python3 migrate.py PATH_TO_DB move OLD_PATH NEW_PATH`
+`python3 migrate.py PATH_TO_DB OLD_PATH NEW_PATH --move --partial`
 
 Notes:
 
@@ -63,3 +69,4 @@ Notes:
   Note that a move is not guaranteed to be atomic (e.g. you are moving from one disk to another, and the destination fills up)
 - Similar to migration, you _should_ stop Navidrome before doing this.
   However, the entire operation is atomic with respect to the database, so you _can_ do this live.
+- If you omit `--partial`, this will move your **entire** library. In this case you **must** stop Navidrome first

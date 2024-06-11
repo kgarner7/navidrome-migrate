@@ -6,7 +6,7 @@ from pathlib import Path
 from sqlite3 import connect
 from shutil import move as fsmove
 from traceback import print_exc
-from typing import List, Literal, NoReturn, Optional, Tuple
+from typing import List, Literal, NoReturn, Tuple
 
 parser = ArgumentParser(description="Navidrome database migrator")
 parser.add_argument("db_path", help="Path to your navidrome.db")
@@ -81,7 +81,6 @@ db_path: str = args.db_path
 old_path: str = args.old_path
 new_path: str = args.new_path
 dry_run: bool = args.dry_run
-path_slash_replacement: List[str] = []
 move: bool = args.move
 partial: bool = args.partial
 
@@ -93,6 +92,13 @@ if dos2unix and unix2dos:
 
 if (dos2unix or unix2dos) and move:
     fail("You cannot do a move when --dos2unix or --unix2dos are specified")
+
+if dos2unix:
+    path_slash_replacement = ["\\", "/"]
+elif unix2dos:
+    path_slash_replacement = ["/", "\\"]
+else:
+    path_slash_replacement = []
 
 if not Path(db_path).is_file():
     fail(f"The database '{db_path}' does not exist")
